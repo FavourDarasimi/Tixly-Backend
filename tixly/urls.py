@@ -31,8 +31,8 @@ urlpatterns = [
     path('api/social/auth/', include('djoser.social.urls')),
     
     # Your application endpoints
-    path('api/organizers/', include('organizers.urls')),
-    path('api/attendee/', include('attendee.urls')),
+    path('api/organizer/', include('organizers.urls')),
+    path('api/', include('attendee.urls')),
 
     # API Documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

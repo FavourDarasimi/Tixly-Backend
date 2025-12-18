@@ -3,28 +3,33 @@ from cloudinary.models import CloudinaryField
 from django.contrib.auth import get_user_model
 user = get_user_model()
 
-class Category(models.Model):
-    name = models.CharField(max_length=50)
-    slug = models.SlugField(unique=True)
 
-    class Meta:
-        verbose_name_plural = "Categories"
-
-    def __str__(self):
-        return self.name
 
 class Event(models.Model):
+    CATEGORY_CHOICES = (
+        ('music', 'Music'),
+        ('sports', 'Sports'),
+        ('conference', 'Conference'),
+        ('workshop', 'Workshop'),
+        ('festival', 'Festival'),
+        ('theater', 'Theater'),
+        ('tech', 'Tech'),
+        ('other', 'Other'),
+    )
+
     STATUS_CHOICES = (
         ('draft', 'Draft'),
-        ('published', 'PaPublishedid'),
+        ('published', 'Published'),
         ('cancelled', 'Cancelled'),
         ('completed', 'Completed'),
     )
     image = CloudinaryField('image')
-    category = models.ForeignKey(Category,on_delete=models.DO_NOTHING)
+    category = models.CharField(choices=CATEGORY_CHOICES)
     title = models.CharField(max_length=255)
     description = models.TextField()
-    date = models.DateField()
+    date = models.DateField(null=True, blank=True)
+    startDateTime = models.DateTimeField(null=True, blank=True)
+    endDateTime = models.DateTimeField(null=True, blank=True)
     time = models.TimeField()
     location = models.CharField(max_length=255)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
