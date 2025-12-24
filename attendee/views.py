@@ -7,6 +7,8 @@ from rest_framework.permissions import AllowAny
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import Event,TicketTier
 from .filters import EventFilter
+from django.utils import timezone
+from datetime import timedelta
 
 
 
@@ -64,10 +66,67 @@ class ListEvents(generics.ListAPIView):
         return queryset
     
 
+class UpcomingEvents(generics.ListAPIView):
+    """
+    Get events happening in the next 24 hours
+    """
+    serializer_class = EventListSerializer
+    permission_classes = [AllowAny]
+    
+    def get_queryset(self):
+        now = timezone.now()
+        twenty_four_hours_later = now + timedelta(hours=24)
+        
+        return Event.objects.filter(
+            status='published',
+            startDateTime__gte=now,
+            startDateTime__lte=twenty_four_hours_later
+        ).select_related(
+            'organizer'
+        ).prefetch_related(
+            'ticket_tiers',
+            'saved_by'
+        ).order_by('startDateTime')
+
+
+class NewEvents(generics.ListAPIView):
+    """
+    Get newly created events (created in the last 7 days)
+    """
+    serializer_class = EventListSerializer
+    permission_classes = [AllowAny]
+    
+    def get_queryset(self):
+        seven_days_ago = timezone.now() - timedelta(days=7)
+        
+        return Event.objects.filter(
+            status='published',
+            created_at__gte=seven_days_ago,
+            startDateTime__gte=timezone.now()
+        ).select_related(
+            'organizer'
+        ).prefetch_related(
+            'ticket_tiers',
+            'saved_by'
+        ).order_by('-created_at')
+
 class EventDetails(generics.RetrieveAPIView):
+  
     queryset = Event.objects.all()
     serializer_class = EventListSerializer
-    lookup_field = 'pk'    
+    permission_classes = [AllowAny]
+    lookup_field = 'pk'
+    
+    def retrieve(self, request, *args, **kwargs):
+        """Override to increment view count"""
+        instance = self.get_object()
+        
+        # Increment views (but not for the organizer viewing their own event)
+        if not request.user.is_authenticated or request.user != instance.organizer:
+            instance.increment_views()
+        
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)    
 
 class EventTicketTiers(generics.ListAPIView):
     serializer_class = TicketTierSerializer
