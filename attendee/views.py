@@ -3,9 +3,9 @@ from rest_framework import generics
 from rest_framework.response import Response
 from organizers.serializers import EventListSerializer,TicketTierSerializer
 from rest_framework import generics, filters
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny,IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import Event,TicketTier
+from .models import Event,TicketTier,Ticket
 from .filters import EventFilter
 from django.utils import timezone
 from datetime import timedelta
@@ -44,7 +44,6 @@ class ListEvents(generics.ListAPIView):
     # Configure OrderingFilter
     ordering_fields = [
         'title',
-        'data',
         'startDateTime',
         'endDateTime',
         'createdAt',
@@ -61,7 +60,7 @@ class ListEvents(generics.ListAPIView):
         # Additional custom filtering logic can go here
         # For example, only show future events
         from django.utils import timezone
-        queryset = queryset.filter(startDateTime__gte=timezone.now())
+        queryset = queryset.filter(endDateTime__gte=timezone.now())
         
         return queryset
     
@@ -71,22 +70,33 @@ class UpcomingEvents(generics.ListAPIView):
     Get events happening in the next 24 hours
     """
     serializer_class = EventListSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
         now = timezone.now()
+        user = self.request.user
         twenty_four_hours_later = now + timedelta(hours=24)
-        
-        return Event.objects.filter(
-            status='published',
-            startDateTime__gte=now,
-            startDateTime__lte=twenty_four_hours_later
-        ).select_related(
-            'organizer'
-        ).prefetch_related(
-            'ticket_tiers',
-            'saved_by'
-        ).order_by('startDateTime')
+        tickets = Ticket.objects.filter(user=user,event__startDateTime__gte=now,event__startDateTime__lte=twenty_four_hours_later).order_by('event__startDateTime')
+        events = []
+        for ticket in tickets:
+            if ticket.event in events:
+                pass
+            else:
+                event =Event.objects.get(id = ticket.event.pk)
+                events.append(event)
+
+        return events       
+
+        # return Event.objects.filter(
+        #     status='published',
+        #     startDateTime__gte=now,
+        #     startDateTime__lte=twenty_four_hours_later
+        # ).select_related(
+        #     'organizer'
+        # ).prefetch_related(
+        #     'ticket_tiers',
+        #     'saved_by'
+        # ).order_by('startDateTime')
 
 
 class NewEvents(generics.ListAPIView):

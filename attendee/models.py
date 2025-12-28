@@ -35,6 +35,7 @@ class Ticket(models.Model):
     )
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='tickets')
+    event = models.ForeignKey(Event,on_delete=models.DO_NOTHING, related_name='event')
     user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='tickets')
     ticket_tier = models.ForeignKey(TicketTier, on_delete=models.CASCADE, related_name='tickets')
     qr_code = models.UUIDField()
