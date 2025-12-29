@@ -65,38 +65,50 @@ class ListEvents(generics.ListAPIView):
         return queryset
     
 
-class UpcomingEvents(generics.ListAPIView):
+# class TrendingEvents(generics):
+#     pass
+
+class UpcomingEvents(generics.GenericAPIView):
     """
     Get events happening in the next 24 hours
     """
     serializer_class = EventListSerializer
     permission_classes = [IsAuthenticated]
     
-    def get_queryset(self):
+    def get(self,request):
         now = timezone.now()
-        user = self.request.user
-        twenty_four_hours_later = now + timedelta(hours=24)
-        tickets = Ticket.objects.filter(user=user,event__startDateTime__gte=now,event__startDateTime__lte=twenty_four_hours_later).order_by('event__startDateTime')
-        events = []
+        user = request.user
+        twenty_four_hrs = now + timedelta(hours=24)
+        week = now + timedelta(days=7)
+        month = now + timedelta(days=30)
+        tickets = Ticket.objects.filter(user=user,event__startDateTime__gte=now).select_related('event','event__organizer').prefetch_related('event__ticket_tiers').order_by('event__startDateTime')
+        events_24h = []
+        events_week = []
+        events_month = []
+        events_all = []
+        event_ids = []
         for ticket in tickets:
-            if ticket.event in events:
-                pass
-            else:
-                event =Event.objects.get(id = ticket.event.pk)
-                events.append(event)
+            event =Event.objects.get(id = ticket.event.pk)
+            if event.id in event_ids:
+                continue
+            event_ids.append(event.id)
+            if event.startDateTime <= twenty_four_hrs:
+                events_24h.append(event)
+            if event.startDateTime <= week:       
+                events_week.append(event)
+            if event.startDateTime <= month:       
+                events_month.append(event)
+            events_all.append(event)    
 
-        return events       
+        serializer = self.serializer_class   
+        return Response({
+            "next_24-hours":serializer(events_24h,many=True).data,
+            "this week":serializer(events_week,many=True).data,
+            "this_month":serializer(events_month,many=True).data,
+            "all":serializer(events_all,many=True).data
+        })      
 
-        # return Event.objects.filter(
-        #     status='published',
-        #     startDateTime__gte=now,
-        #     startDateTime__lte=twenty_four_hours_later
-        # ).select_related(
-        #     'organizer'
-        # ).prefetch_related(
-        #     'ticket_tiers',
-        #     'saved_by'
-        # ).order_by('startDateTime')
+  
 
 
 class NewEvents(generics.ListAPIView):
@@ -107,7 +119,7 @@ class NewEvents(generics.ListAPIView):
     permission_classes = [AllowAny]
     
     def get_queryset(self):
-        seven_days_ago = timezone.now() - timedelta(days=7)
+        seven_days_ago = timezone.now() - timedelta(days=20)
         
         return Event.objects.filter(
             status='published',
