@@ -76,8 +76,8 @@ DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'accounts.authentication.CookieJWTAuthentication'
+        'accounts.authentication.CookieJWTAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication'
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -240,7 +240,7 @@ DJOSER = {
 }
 
 
-# CORS Settings
+# CORS Configuration
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -248,11 +248,33 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-# For development on localhost
-SESSION_COOKIE_SECURE = False  # Must be False
-CSRF_COOKIE_SECURE = False 
-SESSION_COOKIE_SAMESITE ='Lax'
-CSRF_COOKIE_SAMESITE = 'lax'
+# Additional CORS headers needed for cookies
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Cookie Settings for Development (localhost)
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False  # Must be False for localhost HTTP
+SESSION_COOKIE_SAMESITE = 'Lax'  # 'Lax' works for same-site requests
+SESSION_COOKIE_DOMAIN = None  # None for localhost
+
+CSRF_COOKIE_HTTPONLY = False  # Allow JS to read for CSRF protection
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# For production with HTTPS, change to:
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+# SESSION_COOKIE_SAMESITE = 'None'  # Required for cross-origin with secure=True
 
 # Email Settings (Development - prints to console)
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
