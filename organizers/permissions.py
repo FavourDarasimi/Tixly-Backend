@@ -16,7 +16,7 @@ class IsOrganizer(BasePermission):
 class IsEventOrganizer(BasePermission):
 
 
-    message = "You are not allowed to modify this event."
+    message = "You don't have perission to perform this action."
 
     def has_object_permission(self, request, view, obj):
         return (

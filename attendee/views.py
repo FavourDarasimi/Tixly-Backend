@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import generics
 from rest_framework.response import Response
-from organizers.serializers import EventListSerializer,TicketTierSerializer
+from organizers.serializers import EventListSerializer,TicketTierSerializer,EventDetailSerializer
 from rest_framework import generics, filters
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
@@ -135,20 +135,20 @@ class NewEvents(generics.ListAPIView):
 class EventDetails(generics.RetrieveAPIView):
   
     queryset = Event.objects.all()
-    serializer_class = EventListSerializer
+    serializer_class = EventDetailSerializer
     permission_classes = [AllowAny]
     lookup_field = 'pk'
     
-    def retrieve(self, request, *args, **kwargs):
-        """Override to increment view count"""
-        instance = self.get_object()
+    # def retrieve(self, request, *args, **kwargs):
+    #     """Override to increment view count"""
+    #     instance = self.get_object()
         
-        # Increment views (but not for the organizer viewing their own event)
-        if not request.user.is_authenticated or request.user != instance.organizer:
-            instance.increment_views()
+    #     # Increment views (but not for the organizer viewing their own event)
+    #     if not request.user.is_authenticated or request.user != instance.organizer:
+    #         instance.increment_views()
         
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)    
+    #     serializer = self.get_serializer(instance)
+    #     return Response(serializer.data)    
 
 class EventTicketTiers(generics.ListAPIView):
     serializer_class = TicketTierSerializer
