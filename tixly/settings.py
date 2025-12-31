@@ -57,6 +57,8 @@ INSTALLED_APPS = [
     'djoser',
     'cloudinary',
     'django_filters',
+    'debug_toolbar',
+    'silk'
 ]
 
 SITE_ID = 1
@@ -96,12 +98,14 @@ REST_FRAMEWORK = {
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'silk.middleware.SilkyMiddleware'
 ]
 
 ROOT_URLCONF = 'tixly.urls'
@@ -292,3 +296,6 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 # Site settings (for email templates)
 # DOMAIN = 'localhost:3000'
 # SITE_NAME = 'Tixly'
+
+
+INTERNAL_IPS = ['127.0.0.1', 'localhost']

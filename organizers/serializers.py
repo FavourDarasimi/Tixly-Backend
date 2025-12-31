@@ -188,19 +188,17 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
 class ScheduleListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for schedule listings"""
-    speaker_names = serializers.SerializerMethodField()
+    speakers =SpeakerSerializer(many=True, read_only=True)
+    event_day = EventDaySerializer()
     
     class Meta:
         model = Schedule
         fields = [
-            'id', 'title', 'session_type', 'start_time',
-            'end_time',  'speaker_names',
+            'id', 'title', 'session_type', 'start_time','description','event_day',
+            'end_time',  'speakers',
              'order'
         ]
     
-    def get_speaker_names(self, obj):
-        """Get comma-separated speaker names"""
-        return ", ".join([speaker.name for speaker in obj.speakers.all()])
 
 
 class EventDayWithScheduleSerializer(serializers.ModelSerializer):

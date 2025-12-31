@@ -45,6 +45,11 @@ class Ticket(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['event']),
+        ]
+
 
 class SavedEvent(models.Model):
     user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='saved_events')

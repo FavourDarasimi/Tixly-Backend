@@ -9,6 +9,10 @@ from .models import Event,TicketTier,Ticket
 from .filters import EventFilter
 from django.utils import timezone
 from datetime import timedelta
+from django.db.models import Prefetch
+from organizers.models import Schedule,EventDay
+
+
 
 
 
@@ -81,17 +85,18 @@ class UpcomingEvents(generics.GenericAPIView):
         twenty_four_hrs = now + timedelta(hours=24)
         week = now + timedelta(days=7)
         month = now + timedelta(days=30)
-        tickets = Ticket.objects.filter(user=user,event__startDateTime__gte=now).select_related('event','event__organizer').prefetch_related('event__ticket_tiers').order_by('event__startDateTime')
+        tickets = Ticket.objects.filter(user=user,event__startDateTime__gte=now).select_related('event','event__organizer','ticket_tier').prefetch_related('event__ticket_tiers').order_by('event__startDateTime')
         events_24h = []
         events_week = []
         events_month = []
         events_all = []
-        event_ids = []
+     
+        seen_event_ids = set()
         for ticket in tickets:
-            event =Event.objects.get(id = ticket.event.pk)
-            if event.id in event_ids:
+            event =ticket.event
+            if event.id in seen_event_ids:
                 continue
-            event_ids.append(event.id)
+            seen_event_ids.add(event.id)
             if event.startDateTime <= twenty_four_hrs:
                 events_24h.append(event)
             if event.startDateTime <= week:       
@@ -134,10 +139,35 @@ class NewEvents(generics.ListAPIView):
 
 class EventDetails(generics.RetrieveAPIView):
   
-    queryset = Event.objects.all()
+ 
     serializer_class = EventDetailSerializer
     permission_classes = [AllowAny]
     lookup_field = 'pk'
+
+    def get_queryset(self):
+        return Event.objects.select_related(
+            'organizer'
+        ).prefetch_related(
+            'ticket_tiers',
+            Prefetch(
+                'schedules',
+                queryset=Schedule.objects.select_related(
+                    'event_day'
+                ).prefetch_related(
+                    'speakers'
+                ).order_by('date', 'start_time', 'order')
+            ),
+            Prefetch(
+                'event_days',
+                queryset=EventDay.objects.prefetch_related(
+                    Prefetch(
+                        'schedules',
+                        queryset=Schedule.objects.prefetch_related('speakers')
+                    )
+                ).order_by('date', 'startTime')
+            )
+        )
+
     
     # def retrieve(self, request, *args, **kwargs):
     #     """Override to increment view count"""
