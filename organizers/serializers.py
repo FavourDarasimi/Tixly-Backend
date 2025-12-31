@@ -221,7 +221,12 @@ class EventDetailSerializer(EventListSerializer):
     class Meta(EventListSerializer.Meta):
         fields = EventListSerializer.Meta.fields + ['event_days', 'schedules','speakers']
 
-    def get_speakers(self,obj):
-        speakers_queryset = obj.get_speakers()
-        return SpeakerSerializer(speakers_queryset, many=True).data
+    def get_speakers(self, obj):
+        all_speakers = set()
+        
+        for schedule in obj.schedules.all():
+            for speaker in schedule.speakers.all():
+                all_speakers.add(speaker)               
+        
+        return SpeakerSerializer(list(all_speakers), many=True).data
 

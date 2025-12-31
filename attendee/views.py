@@ -11,7 +11,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Prefetch
 from organizers.models import Schedule,EventDay
-
+from django.db.models import Count, Exists, OuterRef
 
 
 
@@ -107,7 +107,7 @@ class UpcomingEvents(generics.GenericAPIView):
 
         serializer = self.serializer_class   
         return Response({
-            "next_24-hours":serializer(events_24h,many=True).data,
+            "next_24_hours":serializer(events_24h,many=True).data,
             "this week":serializer(events_week,many=True).data,
             "this_month":serializer(events_month,many=True).data,
             "all":serializer(events_all,many=True).data
@@ -143,6 +143,7 @@ class EventDetails(generics.RetrieveAPIView):
     serializer_class = EventDetailSerializer
     permission_classes = [AllowAny]
     lookup_field = 'pk'
+
 
     def get_queryset(self):
         return Event.objects.select_related(

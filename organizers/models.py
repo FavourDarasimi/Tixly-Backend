@@ -65,15 +65,7 @@ class Event(models.Model):
         now = timezone.now()
         return self.startDateTime <= now <= self.endDateTime
     
-    def get_speakers(self):
-        schedules = Schedule.objects.filter(event_id=self.id)
-        speakers = []
-        for schedule in schedules:
-            
-            for speaker in schedule.speakers.all():
-                if speaker not in speakers:
-                    speakers.append(speaker)       
-        return speakers
+    
     
 
 class EventDay(models.Model):
@@ -193,6 +185,7 @@ class Schedule(models.Model):
         indexes = [
             models.Index(fields=['event', 'date', 'start_time']),
             models.Index(fields=['event_day', 'start_time']),
+            
         ]
     
     def __str__(self):
