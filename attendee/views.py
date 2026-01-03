@@ -5,6 +5,8 @@ from organizers.serializers import EventListSerializer,TicketTierSerializer,Even
 from rest_framework import generics, filters
 from rest_framework.permissions import AllowAny,IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+
+from .serializers import TicketSerializer
 from .models import Event,TicketTier,Ticket
 from .filters import EventFilter
 from django.utils import timezone
@@ -86,10 +88,10 @@ class UpcomingEvents(generics.GenericAPIView):
         week = now + timedelta(days=7)
         month = now + timedelta(days=30)
         tickets = Ticket.objects.filter(user=user,event__startDateTime__gte=now).select_related('event','event__organizer','ticket_tier').prefetch_related('event__ticket_tiers').order_by('event__startDateTime')
-        events_24h = []
-        events_week = []
-        events_month = []
-        events_all = []
+        events_24h =  set()
+        events_week =  set()
+        events_month =  set()
+        events_all =  set()
      
         seen_event_ids = set()
         for ticket in tickets:
@@ -98,12 +100,12 @@ class UpcomingEvents(generics.GenericAPIView):
                 continue
             seen_event_ids.add(event.id)
             if event.startDateTime <= twenty_four_hrs:
-                events_24h.append(event)
+                events_24h.add(event)
             if event.startDateTime <= week:       
-                events_week.append(event)
+                events_week.add(event)
             if event.startDateTime <= month:       
-                events_month.append(event)
-            events_all.append(event)    
+                events_month.add(event)
+            events_all.add(event)    
 
         serializer = self.serializer_class   
         return Response({
@@ -188,5 +190,46 @@ class EventTicketTiers(generics.ListAPIView):
     def get_queryset(self):
         event_id = self.kwargs.get("pk")
         return TicketTier.objects.filter(event__id = event_id)
+
+class AttendeeEvents(generics.GenericAPIView):
+    serializer_class = EventListSerializer
+    permission_classes = [IsAuthenticated]
+
+
+    def get(self,request):
+        now = timezone.now()
+        user = request.user
+        tickets = Ticket.objects.filter(user=user).select_related('event','event__organizer','ticket_tier').prefetch_related('event__ticket_tiers').order_by('event__startDateTime')
+        
+        upcoming_event = set()
+        past_event = set()
+
+        for ticket in tickets:
+            event = ticket.event
+            if event.startDateTime <= now:
+                past_event.add(event)
+            else:
+                upcoming_event.add(event)
+        
+        serializer = self.serializer_class
+
+        return Response({
+            "upcoming":serializer(upcoming_event,many=True).data,
+            "past":serializer(past_event,many=True).data
+        })
+
+
+class EventTicket(generics.ListAPIView):
+    queryset = Ticket.objects.all()
+    serializer_class = TicketSerializer
+    lookup_field = 'pk'
+    
+    def get_queryset(self):
+        pk = self.kwargs.get("pk")
+        user = self.request.user
+        ticket = Ticket.objects.filter(event__id = pk,user =user ).select_related('event','event__organizer','ticket_tier').prefetch_related('event__ticket_tiers')
+        return ticket
+
+
 
 # Create your views here.
