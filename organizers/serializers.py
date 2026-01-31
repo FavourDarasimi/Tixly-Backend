@@ -23,13 +23,13 @@ class EventListSerializer(serializers.ModelSerializer):
     organizer = UserPublicSerializer(read_only=True)
     ticket_tiers = TicketTierSerializer(many=True, read_only=True)
     image = serializers.ImageField()
-    min_price = serializers.SerializerMethodField()
-    max_price = serializers.SerializerMethodField()
-    available_tickets = serializers.SerializerMethodField()
-    duration_days = serializers.SerializerMethodField()
-    is_currently_happening = serializers.SerializerMethodField()
-    has_schedule = serializers.SerializerMethodField()
-    schedule_count = serializers.SerializerMethodField()
+    # min_price = serializers.SerializerMethodField()
+    # max_price = serializers.SerializerMethodField()
+    # available_tickets = serializers.SerializerMethodField()
+    # duration_days = serializers.SerializerMethodField()
+    # is_currently_happening = serializers.SerializerMethodField()
+    # has_schedule = serializers.SerializerMethodField()
+    # schedule_count = serializers.SerializerMethodField()
     
     
 
@@ -37,37 +37,38 @@ class EventListSerializer(serializers.ModelSerializer):
         model = Event
         fields = [
             'id', 'title', 'image',"short_description", 'description', 'category', 'organizer',
-            'location', 'startDateTime', 'endDateTime', 'duration_days',
-            'is_multi_day', 'is_currently_happening', 'available_tickets',
-            'status', 'ticket_tiers', 'min_price', 'max_price',
-            'latitude', 'longitude', 'has_schedule', 'schedule_count',
+            'location', 'startDateTime', 'endDateTime', 
+            'is_multi_day', 
+            'status', 'ticket_tiers', 
+            'latitude', 'longitude', 
             'created_at'
         ]
+        # 'has_schedule', 'schedule_count','min_price', 'max_price','is_currently_happening', 'available_tickets','duration_days',
 
-    def get_min_price(self, obj):
-        prices = [tier.price for tier in obj.ticket_tiers.all()]
-        return min(prices) if prices else None
+    # def get_min_price(self, obj):
+    #     prices = [tier.price for tier in obj.ticket_tiers.all()]
+    #     return min(prices) if prices else None
     
-    def get_max_price(self, obj):
-        prices = [tier.price for tier in obj.ticket_tiers.all()]
-        return max(prices) if prices else None
+    # def get_max_price(self, obj):
+    #     prices = [tier.price for tier in obj.ticket_tiers.all()]
+    #     return max(prices) if prices else None
     
-    def get_available_tickets(self, obj):
-        return sum(tier.available_tickets for tier in obj.ticket_tiers.all())  
+    # def get_available_tickets(self, obj):
+    #     return sum(tier.available_tickets for tier in obj.ticket_tiers.all())  
 
-    def get_duration_days(self, obj):
-        return obj.get_duration_days()
+    # def get_duration_days(self, obj):
+    #     return obj.get_duration_days()
     
-    def get_is_currently_happening(self, obj):
-        return obj.is_currently_happening()
+    # def get_is_currently_happening(self, obj):
+    #     return obj.is_currently_happening()
     
-    def get_has_schedule(self, obj):
-        """Check if event has any schedule items"""
-        return obj.schedules.exists()
+    # def get_has_schedule(self, obj):
+    #     """Check if event has any schedule items"""
+    #     return obj.schedules.exists()
     
-    def get_schedule_count(self, obj):
-        """Count of schedule items"""
-        return obj.schedules.count()
+    # def get_schedule_count(self, obj):
+    #     """Count of schedule items"""
+    #     return obj.schedules.count()
 
     
         
@@ -158,15 +159,6 @@ class ScheduleSerializer(serializers.ModelSerializer):
         
         return data
     
-    def create(self, validated_data):
-        """Create schedule with speakers"""
-        speaker_ids = validated_data.pop('speaker_ids', [])
-        schedule = Schedule.objects.create(**validated_data)
-        
-        if speaker_ids:
-            speakers = Speaker.objects.filter(id__in=speaker_ids)
-            schedule.speakers.set(speakers)
-        
         return schedule
     
     def update(self, instance, validated_data):
@@ -185,11 +177,17 @@ class ScheduleSerializer(serializers.ModelSerializer):
         
         return instance
 
+class SimpleEventDaySerializer(serializers.ModelSerializer):
+    """EventDay serializer without neseted event to avoid circular queries"""
+    class Meta:
+        model = EventDay
+        fields = ["id","dayNumber","date","startTime","endTime","title","description"]
+
 
 class ScheduleListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for schedule listings"""
     speakers =SpeakerSerializer(many=True, read_only=True)
-    event_day = EventDaySerializer()
+    event_day = SimpleEventDaySerializer()
     
     class Meta:
         model = Schedule
@@ -215,18 +213,31 @@ class EventDayWithScheduleSerializer(serializers.ModelSerializer):
 class EventDetailSerializer(EventListSerializer):
     """Extended serializer with full schedule details"""
     event_days = EventDayWithScheduleSerializer(many=True, read_only=True)
-    schedules = ScheduleListSerializer(many=True, read_only=True)
+    # schedules = ScheduleListSerializer(many=True, read_only=True) # REMOVED: Redundant
     speakers = serializers.SerializerMethodField()
+    is_saved = serializers.SerializerMethodField()
     
     class Meta(EventListSerializer.Meta):
-        fields = EventListSerializer.Meta.fields + ['event_days', 'schedules','speakers']
+        fields = EventListSerializer.Meta.fields + ['event_days', 'speakers', 'is_saved']
+
+    def get_is_saved(self, obj):
+        if hasattr(obj, 'is_saved_by_user'):
+            return obj.is_saved_by_user
+            
+        user = self.context.get('request').user
+        if user.is_authenticated:
+            return obj.saved_by.filter(user=user).exists()
+        return False
 
     def get_speakers(self, obj):
-        all_speakers = set()
+        # Optimize: Avoid re-querying by using the pre-fetched schedules
+        # which already have speakers pre-fetched
+        unique_speakers = {}
         
         for schedule in obj.schedules.all():
             for speaker in schedule.speakers.all():
-                all_speakers.add(speaker)               
-        
-        return SpeakerSerializer(list(all_speakers), many=True).data
+                if speaker.id not in unique_speakers:
+                    unique_speakers[speaker.id] = speaker
+                    
+        return SpeakerSerializer(unique_speakers.values(), many=True).data
 

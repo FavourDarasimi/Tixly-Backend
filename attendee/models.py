@@ -34,10 +34,10 @@ class Ticket(models.Model):
         ('cancelled', 'Cancelled'),   
     )
 
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='tickets')
-    event = models.ForeignKey(Event,on_delete=models.DO_NOTHING, related_name='event')
-    user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='tickets')
-    ticket_tier = models.ForeignKey(TicketTier, on_delete=models.CASCADE, related_name='tickets')
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order')
+    event = models.ForeignKey(Event,on_delete=models.DO_NOTHING, related_name='tickets')
+    user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='user')
+    ticket_tier = models.ForeignKey(TicketTier, on_delete=models.CASCADE, related_name='ticket_tier')
     qr_code = models.UUIDField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unused')
     used_at = models.DateTimeField(null=True, blank=True)
@@ -62,4 +62,9 @@ class SavedEvent(models.Model):
 
     class Meta:
         unique_together = ('user', 'event')
+
+    def __str__(self):
+        return f"{self.user.username} saved {self.event.title}"    
+
+
 # Create your models here.

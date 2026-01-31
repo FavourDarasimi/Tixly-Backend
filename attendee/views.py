@@ -11,9 +11,8 @@ from .models import Event,TicketTier,Ticket,Order, SavedEvent
 from .filters import EventFilter
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Prefetch
+from django.db.models import Count, Q, F, Prefetch, Exists, OuterRef
 from organizers.models import Schedule,EventDay
-from django.db.models import Count, Exists, OuterRef
 
 
 
@@ -90,7 +89,7 @@ class UpcomingEvents(generics.GenericAPIView):
         # distinct() is crucial because a user might have multiple tickets for one event
         # Note: related_name='event' on Ticket model means we use event__user to filter
         base_qs = Event.objects.filter(
-            event__user=user, 
+            tickets__user=user, 
             startDateTime__gte=now
         ).distinct().select_related(
             'organizer'
@@ -98,22 +97,24 @@ class UpcomingEvents(generics.GenericAPIView):
             'ticket_tiers'
         )
 
-        # Derived QuerySets
+        # Optimize: Fetch all relevant events once
+        all_events = list(base_qs.order_by('startDateTime'))
+
+        # Filter in memory (Python) instead of hitting DB 4 times
         twenty_four_hrs = now + timedelta(hours=24)
         week = now + timedelta(days=7)
         month = now + timedelta(days=30)
 
-        events_24h = base_qs.filter(startDateTime__lte=twenty_four_hrs).order_by('startDateTime')
-        events_week = base_qs.filter(startDateTime__lte=week).order_by('startDateTime')
-        events_month = base_qs.filter(startDateTime__lte=month).order_by('startDateTime')
-        events_all = base_qs.order_by('startDateTime')
-
-        serializer = self.get_serializer
+        events_24h = [e for e in all_events if e.startDateTime <= twenty_four_hrs]
+        events_week = [e for e in all_events if e.startDateTime <= week]
+        events_month = [e for e in all_events if e.startDateTime <= month]
+        
+        serializer_class = self.get_serializer_class()
         return Response({
-            "next_24_hours": serializer(events_24h, many=True).data,
-            "this week": serializer(events_week, many=True).data, # Kept original key 'this week' for compatibility
-            "this_month": serializer(events_month, many=True).data,
-            "all": serializer(events_all, many=True).data
+            "next_24_hours": serializer_class(events_24h, many=True).data,
+            "this_week": serializer_class(events_week, many=True).data,
+            "this_month": serializer_class(events_month, many=True).data,
+            "all": serializer_class(all_events, many=True).data
         })      
 
   
@@ -139,6 +140,41 @@ class NewEvents(generics.ListAPIView):
             'ticket_tiers',
             'saved_by'
         ).order_by('-created_at')
+
+class TrendingEvents(generics.ListAPIView):
+    """
+    Get trending events based on sales and user engagement (saves) in the last 72 hours.
+    Algorithm: Score = (Recent Sales * 2) + Recent Saves
+    """
+    serializer_class = EventListSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+    
+    def get_queryset(self):
+        now = timezone.now()
+        seventy_two_hours_ago = now - timedelta(hours=72)
+        
+        # Calculate scores based on activity in the last 72 hours
+        # We start with published, upcoming events
+        queryset = Event.objects.filter(
+            status='published',
+            startDateTime__gte=now
+        ).annotate(
+            recent_sales=Count(
+                'tickets', 
+                filter=Q(tickets__created_at__gte=seventy_two_hours_ago)
+            ),
+            recent_saves=Count(
+                'saved_by', 
+                filter=Q(saved_by__created_at__gte=seventy_two_hours_ago)
+            ),
+            trending_score=F('recent_sales') * 2 + F('recent_saves')
+        ).filter(
+            trending_score__gte=5  # Minimum score to be considered trending
+        ).order_by('-trending_score', 'startDateTime')
+        
+        return queryset[:10]  # Return top 10 trending events
+
 
 class EventDetails(generics.RetrieveAPIView):
   
@@ -171,6 +207,19 @@ class EventDetails(generics.RetrieveAPIView):
                 ).order_by('date', 'startTime')
             )
         )
+        
+        user = self.request.user
+        if user.is_authenticated:
+            queryset = queryset.annotate(
+                is_saved_by_user=Exists(
+                    SavedEvent.objects.filter(
+                        event=OuterRef('pk'), 
+                        user=user
+                    )
+                )
+            )
+            
+        return queryset
 
     
     # def retrieve(self, request, *args, **kwargs):
@@ -203,7 +252,7 @@ class AttendeeEvents(generics.GenericAPIView):
         # Base QuerySet: All events user has tickets for
         # Note: related_name='event' on Ticket model means we use event__user to filter
         base_qs = Event.objects.filter(
-            event__user=user
+            tickets__user=user
         ).distinct().select_related(
             'organizer'
         ).prefetch_related(
@@ -316,6 +365,10 @@ class RecommendedEvents(generics.ListAPIView):
         queryset = Event.objects.filter(
             status='published',
             startDateTime__gte=now
+        ).select_related(
+            'organizer'
+        ).prefetch_related(
+            'ticket_tiers'
         )
 
         # 3. Exclude events the user has already bought tickets for OR saved
