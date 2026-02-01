@@ -42,8 +42,8 @@ class ListEvents(generics.ListAPIView):
         'title',
         'description',
         'location',
-    
-        'category'
+        'category',
+        'is_multi_day'
     ]
     
     # Configure OrderingFilter
@@ -101,20 +101,13 @@ class UpcomingEvents(generics.GenericAPIView):
         all_events = list(base_qs.order_by('startDateTime'))
 
         # Filter in memory (Python) instead of hitting DB 4 times
-        twenty_four_hrs = now + timedelta(hours=24)
-        week = now + timedelta(days=7)
         month = now + timedelta(days=30)
-
-        events_24h = [e for e in all_events if e.startDateTime <= twenty_four_hrs]
-        events_week = [e for e in all_events if e.startDateTime <= week]
         events_month = [e for e in all_events if e.startDateTime <= month]
         
         serializer_class = self.get_serializer_class()
         return Response({
-            "next_24_hours": serializer_class(events_24h, many=True).data,
-            "this_week": serializer_class(events_week, many=True).data,
+            "all": serializer_class(all_events, many=True).data,
             "this_month": serializer_class(events_month, many=True).data,
-            "all": serializer_class(all_events, many=True).data
         })      
 
   
@@ -137,8 +130,7 @@ class NewEvents(generics.ListAPIView):
         ).select_related(
             'organizer'
         ).prefetch_related(
-            'ticket_tiers',
-            'saved_by'
+            'ticket_tiers'
         ).order_by('-created_at')
 
 class TrendingEvents(generics.ListAPIView):

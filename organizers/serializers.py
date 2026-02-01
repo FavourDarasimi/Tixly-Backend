@@ -23,9 +23,9 @@ class EventListSerializer(serializers.ModelSerializer):
     organizer = UserPublicSerializer(read_only=True)
     ticket_tiers = TicketTierSerializer(many=True, read_only=True)
     image = serializers.ImageField()
-    # min_price = serializers.SerializerMethodField()
-    # max_price = serializers.SerializerMethodField()
-    # available_tickets = serializers.SerializerMethodField()
+    min_price = serializers.SerializerMethodField()
+    max_price = serializers.SerializerMethodField()
+    available_tickets = serializers.SerializerMethodField()
     # duration_days = serializers.SerializerMethodField()
     # is_currently_happening = serializers.SerializerMethodField()
     # has_schedule = serializers.SerializerMethodField()
@@ -41,20 +41,21 @@ class EventListSerializer(serializers.ModelSerializer):
             'is_multi_day', 
             'status', 'ticket_tiers', 
             'latitude', 'longitude', 
-            'created_at'
+            'created_at',
+            'min_price', 'max_price', 'available_tickets'
         ]
         # 'has_schedule', 'schedule_count','min_price', 'max_price','is_currently_happening', 'available_tickets','duration_days',
 
-    # def get_min_price(self, obj):
-    #     prices = [tier.price for tier in obj.ticket_tiers.all()]
-    #     return min(prices) if prices else None
+    def get_min_price(self, obj):
+        prices = [tier.price for tier in obj.ticket_tiers.all()]
+        return min(prices) if prices else None
     
-    # def get_max_price(self, obj):
-    #     prices = [tier.price for tier in obj.ticket_tiers.all()]
-    #     return max(prices) if prices else None
+    def get_max_price(self, obj):
+        prices = [tier.price for tier in obj.ticket_tiers.all()]
+        return max(prices) if prices else None
     
-    # def get_available_tickets(self, obj):
-    #     return sum(tier.available_tickets for tier in obj.ticket_tiers.all())  
+    def get_available_tickets(self, obj):
+        return sum(tier.available_tickets for tier in obj.ticket_tiers.all())  
 
     # def get_duration_days(self, obj):
     #     return obj.get_duration_days()

@@ -15,16 +15,20 @@ class EventFilter(django_filters.FilterSet):
     max_price = django_filters.NumberFilter(method='filter_max_price')
     status = django_filters.CharFilter(field_name='status', lookup_expr='iexact')
     date_range = django_filters.DateFromToRangeFilter(method='filter_date_range')
-    is_multi_day = django_filters.BooleanFilter(field_name='isMultiDay')
+    is_multi_day = django_filters.BooleanFilter(method='filter_is_multi_day')
     currently_happening = django_filters.BooleanFilter(method='filter_currently_happening')
     
     class Meta:
         model = Event
         fields = ['category', 'location', 'date', 'status','is_multi_day']
+
+
+    def filter_is_multi_day(self,queryset,name,value):
+        return queryset.filter(is_multi_day=value)
     
     def filter_location(self, queryset, name, value):
         return queryset.filter(
-            Q(location__icontains=value) | Q(address__icontains=value)
+            Q(location__icontains=value) 
         )
     
     def filter_date(self, queryset, name, value):
