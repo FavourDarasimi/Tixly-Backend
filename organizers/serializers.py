@@ -152,16 +152,23 @@ class ScheduleSerializer(serializers.ModelSerializer):
         """Validate schedule times and dates"""
         start_time = data.get('start_time')
         end_time = data.get('end_time')
-        
+
         if start_time and end_time and end_time <= start_time:
             raise serializers.ValidationError(
                 "End time must be after start time"
             )
-        
+
         return data
-    
-        return schedule
-    
+
+    def create(self, validated_data):
+        """Create schedule with speakers"""
+        speaker_ids = validated_data.pop('speaker_ids', [])
+        instance = super().create(validated_data)
+        if speaker_ids:
+            speakers = Speaker.objects.filter(id__in=speaker_ids)
+            instance.speakers.set(speakers)
+        return instance
+
     def update(self, instance, validated_data):
         """Update schedule with speakers"""
         speaker_ids = validated_data.pop('speaker_ids', None)

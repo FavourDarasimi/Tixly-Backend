@@ -25,16 +25,16 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         access_token = response.data.get('access')
         refresh_token = response.data.get('refresh')
 
-        # Set access_token cookie
+        # Set access_token cookie (60min to match SIMPLE_JWT ACCESS_TOKEN_LIFETIME)
+        is_secure = settings.DEBUG is False
         response.set_cookie(
             key='access_token',
             value=access_token,
             httponly=True,  # Prevent JavaScript access (security)
-            secure=False,   # False for localhost, True for production HTTPS
-            samesite='Lax', # 'Lax' for same-site, 'None' requires secure=True
+            secure=is_secure,
+            samesite='Lax',
             max_age=60 * 60,  # 1 hour (match your JWT lifetime)
             path='/',       # Available across entire domain
-            domain=None,    # None for localhost, set to your domain in production
         )
 
         # Set refresh_token cookie
@@ -42,11 +42,10 @@ class CustomTokenObtainPairView(TokenObtainPairView):
             key='refresh_token',
             value=refresh_token,
             httponly=True,
-            secure=False,
+            secure=is_secure,
             samesite='Lax',
             max_age=7 * 24 * 60 * 60,  # 7 days
             path='/',
-            domain=None,
         )
 
         # Return success message (remove tokens from response body for security)
@@ -59,12 +58,24 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
 class Logout(GenericAPIView):
     def post(self,request):
+        # Blacklist refresh token if present so it can't be reused
+        refresh_token = request.COOKIES.get('refresh_token')
+        if refresh_token:
+            try:
+                RefreshToken(refresh_token).blacklist()
+            except Exception:
+                pass
         response = Response({
             'status': 'success',
             'message': 'User Logged out'
         })
-        response.delete_cookie("access_token")
-        response.delete_cookie("refresh_token")
+        is_secure = settings.DEBUG is False
+        response.delete_cookie("access_token", path='/', samesite='Lax')
+        response.delete_cookie("refresh_token", path='/', samesite='Lax')
+        # Ensure secure flag matches on production so browsers actually clear
+        if is_secure:
+            response.delete_cookie("access_token", path='/', samesite='Lax', secure=True)
+            response.delete_cookie("refresh_token", path='/', samesite='Lax', secure=True)
         return response
 
 
@@ -84,22 +95,48 @@ class RefreshTokenView(GenericAPIView):
                 }, status=status.HTTP_401_UNAUTHORIZED)
 
             try:
-                refresh = RefreshToken(refresh_token)
-                
+                old_refresh = RefreshToken(refresh_token)
+
+                # Rotate refresh token to match ROTATE_REFRESH_TOKENS=True:
+                # derive a new access token, issue a fresh refresh token,
+                # then blacklist the old refresh.
+                access_token = str(old_refresh.access_token)
+                try:
+                    # Issue a new refresh token for the same user
+                    from django.contrib.auth import get_user_model
+                    user = get_user_model().objects.get(id=old_refresh['user_id'])
+                    new_refresh_token = str(RefreshToken.for_user(user))
+                    old_refresh.blacklist()
+                except Exception:
+                    # If blacklisting/rotation fails, still allow access refresh
+                    # (old refresh remains valid until expiry)
+                    new_refresh_token = None
+
                 # Create new access token
                 response = Response({
                     'message': 'Token refreshed successfully'
                 }, status=status.HTTP_200_OK)
 
+                is_secure = settings.DEBUG is False
                 response.set_cookie(
                     key='access_token',
-                    value=str(refresh.access_token),
+                    value=access_token,
                     httponly=True,
-                    secure=settings.DEBUG is False,
-                    samesite='Strict',
-                    max_age=60 * 15,  # 15 minutes
+                    secure=is_secure,
+                    samesite='Lax',
+                    max_age=60 * 60,  # 60 minutes to match ACCESS_TOKEN_LIFETIME
                     path='/'
                 )
+                if new_refresh_token:
+                    response.set_cookie(
+                        key='refresh_token',
+                        value=new_refresh_token,
+                        httponly=True,
+                        secure=is_secure,
+                        samesite='Lax',
+                        max_age=7 * 24 * 60 * 60,  # 7 days to match REFRESH_TOKEN_LIFETIME
+                        path='/'
+                    )
 
                 return response
 

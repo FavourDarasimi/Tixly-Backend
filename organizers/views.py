@@ -80,9 +80,11 @@ class CreateTicketTiers(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         event_id = self.kwargs.get("pk")
-        event = Event.objects.get(id=event_id)
+        event = get_object_or_404(Event, id=event_id)
+        if event.organizer != self.request.user:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You don't have permission to modify this event")
         serializer.save(event=event)
-        return super().perform_create(serializer)
     
 class UpdateTicketTier(generics.UpdateAPIView):    
     queryset = TicketTier.objects.all()

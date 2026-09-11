@@ -14,13 +14,15 @@ class EventFilter(django_filters.FilterSet):
     min_price = django_filters.NumberFilter(method='filter_min_price')
     max_price = django_filters.NumberFilter(method='filter_max_price')
     status = django_filters.CharFilter(field_name='status', lookup_expr='iexact')
-    date_range = django_filters.DateFromToRangeFilter(method='filter_date_range')
+    date_after = django_filters.DateFilter(method='filter_starts_after')
+    date_before = django_filters.DateFilter(method='filter_ends_before')
+    happening_on = django_filters.DateFilter(method='filter_happening_on_date')
     is_multi_day = django_filters.BooleanFilter(method='filter_is_multi_day')
     currently_happening = django_filters.BooleanFilter(method='filter_currently_happening')
-    
+
     class Meta:
         model = Event
-        fields = ['category', 'location', 'date', 'status','is_multi_day']
+        fields = ['category', 'location', 'date', 'status', 'is_multi_day']
 
 
     def filter_is_multi_day(self,queryset,name,value):
@@ -57,14 +59,6 @@ class EventFilter(django_filters.FilterSet):
     
     def filter_ends_before(self, queryset, name, value):
         return queryset.filter(endDateTime__date__lte=value)
-    
-    def filter_date_range(self, queryset, name, value):
-        if value.start and value.stop:
-            return queryset.filter(
-                Q(startDateTime__date__lte=value.stop) &
-                Q(endDateTime__date__gte=value.start)
-            )
-        return queryset
     
     def filter_currently_happening(self, queryset, name, value):
         if value:

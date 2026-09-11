@@ -39,7 +39,7 @@ class Event(models.Model):
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     available_tickets = models.IntegerField()
     organizer = models.ForeignKey(user, on_delete=models.CASCADE, related_name='events')
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -49,7 +49,7 @@ class Event(models.Model):
 
     def save(self, *args, **kwargs):
         if self.startDateTime and self.endDateTime:
-            self.isMultiDay = self.startDateTime.date() != self.endDateTime.date()
+            self.is_multi_day = self.startDateTime.date() != self.endDateTime.date()
         super().save(*args, **kwargs)
     
     def get_duration_days(self):

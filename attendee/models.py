@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from organizers.models import Event,TicketTier
 from django.contrib.auth import get_user_model
@@ -12,7 +13,7 @@ class Order(models.Model):
         ('expired', 'Expired'),
     )
 
-    order_id = models.UUIDField()
+    order_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     user = models.ForeignKey(user, on_delete=models.PROTECT, related_name='orders')
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
     
@@ -34,11 +35,11 @@ class Ticket(models.Model):
         ('cancelled', 'Cancelled'),   
     )
 
-    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='order')
-    event = models.ForeignKey(Event,on_delete=models.DO_NOTHING, related_name='tickets')
-    user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='user')
-    ticket_tier = models.ForeignKey(TicketTier, on_delete=models.CASCADE, related_name='ticket_tier')
-    qr_code = models.UUIDField()
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='tickets')
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='tickets')
+    user = models.ForeignKey(user, on_delete=models.CASCADE, related_name='tickets')
+    ticket_tier = models.ForeignKey(TicketTier, on_delete=models.CASCADE, related_name='tickets')
+    qr_code = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='unused')
     used_at = models.DateTimeField(null=True, blank=True)
     attendee_name = models.CharField(max_length=100, null=True, blank=True)

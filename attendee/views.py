@@ -43,15 +43,14 @@ class ListEvents(generics.ListAPIView):
         'description',
         'location',
         'category',
-        'is_multi_day'
     ]
-    
+
     # Configure OrderingFilter
     ordering_fields = [
         'title',
         'startDateTime',
         'endDateTime',
-        'createdAt',
+        'created_at',
     ]
     ordering = ['startDateTime']  # Default ordering
     
@@ -115,11 +114,11 @@ class UpcomingEvents(generics.GenericAPIView):
 
 class NewEvents(generics.ListAPIView):
     """
-    Get newly created events (created in the last 7 days)
+    Get newly created events (created in the last 20 days)
     """
     serializer_class = EventListSerializer
     permission_classes = [AllowAny]
-    
+
     def get_queryset(self):
         seven_days_ago = timezone.now() - timedelta(days=20)
         
@@ -137,6 +136,7 @@ class TrendingEvents(generics.ListAPIView):
     """
     Get trending events based on sales and user engagement (saves) in the last 72 hours.
     Algorithm: Score = (Recent Sales * 2) + Recent Saves
+    Returns an unpaginated top-10 list (frontend expects a raw array).
     """
     serializer_class = EventListSerializer
     permission_classes = [AllowAny]
@@ -177,7 +177,7 @@ class EventDetails(generics.RetrieveAPIView):
 
 
     def get_queryset(self):
-        return Event.objects.select_related(
+        queryset = Event.objects.select_related(
             'organizer'
         ).prefetch_related(
             'ticket_tiers',
@@ -199,18 +199,18 @@ class EventDetails(generics.RetrieveAPIView):
                 ).order_by('date', 'startTime')
             )
         )
-        
+
         user = self.request.user
         if user.is_authenticated:
             queryset = queryset.annotate(
                 is_saved_by_user=Exists(
                     SavedEvent.objects.filter(
-                        event=OuterRef('pk'), 
+                        event=OuterRef('pk'),
                         user=user
                     )
                 )
             )
-            
+
         return queryset
 
     
@@ -254,12 +254,10 @@ class AttendeeEvents(generics.GenericAPIView):
         # Split into upcoming and past
         upcoming_events = base_qs.filter(startDateTime__gt=now).order_by('startDateTime')
         past_events = base_qs.filter(startDateTime__lte=now).order_by('-startDateTime')
-        
-        serializer = self.get_serializer
 
         return Response({
-            "upcoming": serializer(upcoming_events, many=True).data,
-            "past": serializer(past_events, many=True).data
+            "upcoming": self.get_serializer(upcoming_events, many=True).data,
+            "past": self.get_serializer(past_events, many=True).data
         })
 
 
@@ -338,6 +336,10 @@ class SavedEventsList(generics.GenericAPIView):
             )
 
 class RecommendedEvents(generics.ListAPIView):
+    """
+    Personalized recommendations. Returns an unpaginated list
+    (frontend expects a raw array).
+    """
     permission_classes = [IsAuthenticated]
     serializer_class = EventListSerializer
     pagination_class = None

@@ -7,10 +7,10 @@ class User(AbstractUser):
         ("organizer","Organizer")
     )
 
-    first_name = models.CharField(max_length=30)   
+    first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     email = models.EmailField(unique=True)
-    role = models.CharField(choices=ROLES,default="Attendee")
+    role = models.CharField(max_length=20, choices=ROLES, default="attendee")
 
     USERNAME_FIELD = 'email'
     

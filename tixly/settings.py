@@ -24,12 +24,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-zq=!u$)tfs=p3r=(v**)f)6me-d%8*e)0(hc%l2a$(zkqo7wjc'
+# Set DJANGO_SECRET_KEY in the environment for production. The fallback
+# below is for local development only.
+SECRET_KEY = os.getenv(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-zq=!u$)tfs=p3r=(v**)f)6me-d%8*e)0(hc%l2a$(zkqo7wjc',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set DJANGO_DEBUG=False in production.
+DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+    if h.strip()
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        'DJANGO_CSRF_TRUSTED_ORIGINS',
+        'http://localhost:3000,http://127.0.0.1:3000',
+    ).split(',')
+    if o.strip()
+]
 
 
 # Application definition
@@ -73,7 +92,14 @@ cloudinary.config(
   secure = True
 )
 
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+STORAGES = {
+    'default': {
+        'BACKEND': 'cloudinary_storage.storage.MediaCloudinaryStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
 
 
 REST_FRAMEWORK = {
@@ -281,7 +307,12 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 # SESSION_COOKIE_SAMESITE = 'None'  # Required for cross-origin with secure=True
 
 # Email Settings (Development - prints to console)
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Override with DJANGO_EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+# plus EMAIL_HOST/PORT/USE_TLS/HOST_USER/HOST_PASSWORD in production.
+EMAIL_BACKEND = os.getenv(
+    'DJANGO_EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
 
 # For Production - uncomment and configure:
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
